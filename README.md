@@ -24,7 +24,7 @@ Before starting, ensure you have:
    Download the code to your computer:
 
    ```bash
-   git clone https://github.com/yourusername/statsource-mcp.git
+   git clone https://github.com/jamie7893/statsource-mcp.git
    cd statsource-mcp
    ```
 
