@@ -85,6 +85,90 @@ python mcp_server.py
 
 The server uses standard input/output, making it compatible with AI agents like Claude Desktop.
 
+## Available Tools
+
+### get_statistics
+Analyze data and calculate statistics or generate ML predictions based on provided parameters.
+
+#### What this tool does:
+This tool connects to our analytics API and provides two main functionalities:
+1. Statistical Analysis: Calculate various statistical measures on specified data columns
+2. ML Predictions: Generate time-series forecasts for future periods based on historical data
+
+#### Important Instructions for AI Agents:
+- DO NOT make up or guess any parameter values, especially data sources or column names
+- NEVER, UNDER ANY CIRCUMSTANCES, create or invent database connection strings - this is a severe security risk
+- ALWAYS ask the user explicitly for all required information
+- For CSV files: The user MUST first upload their file to statsource.me, then provide the filename
+- For database connections: Ask the user for their exact PostgreSQL connection string - DO NOT MODIFY IT
+- Never suggest default values, sample data, or example parameters - request specific information from the user
+- If the user has configured a default database connection in their MCP config, inform them it will be used if they don't specify a data source
+- If no database connection is provided in the MCP config and the user doesn't provide one, DO NOT PROCEED - ask user to provide connection details
+
+#### When to use this tool:
+- When a user needs statistical analysis of their data (means, medians, etc.)
+- When a user wants to predict future values based on historical trends
+- When analyzing trends, patterns, or distributions in datasets
+- When generating forecasts for business planning or decision-making
+
+#### Required inputs:
+- columns: List of column names to analyze or predict (ask user for exact column names in their data)
+
+#### Optional inputs:
+- data_source: Path to data file, database connection string, or API endpoint
+  * For CSV: Filename of a previously uploaded file on statsource.me (ask user to upload first)
+  * For Database: Full connection string (ask user for exact string)
+  * If not provided, will use the connection string from MCP config if available
+- source_type: Type of data source ("csv", "database", or "api")
+  * If not provided, will use the source type from MCP config if available
+- statistics: List of statistics to calculate (only required for statistical analysis)
+- query_type: Type of query ("statistics" or "ml_prediction")
+- periods: Number of future periods to predict (only used for ML predictions)
+
+#### Valid statistics options:
+- Basic (free tier): "mean", "median", "min", "max", "count", "sum", "std", "var"
+- Advanced (paid tier): "skewness", "kurtosis", "percentile", "histogram", "correlation"
+
+#### ML Prediction features:
+- Time series forecasting with customizable prediction periods
+- Trend direction analysis ("increasing", "decreasing", "stable")
+- Model quality metrics (r-squared, slope)
+- Works with numeric data columns from any supported data source
+
+#### Returns:
+For statistics queries:
+- Statistical measures for each requested column and statistic
+
+For ML prediction queries:
+- Predicted future values for specified columns
+- Trend direction and model quality metrics
+- R-squared value and slope indicators
+
+#### Example questions to ask users:
+1. "Have you already uploaded your CSV file to statsource.me? What is the filename?"
+2. "What is your exact PostgreSQL connection string?" (if not configured in MCP config)
+3. "Which specific columns in your data would you like to analyze?"
+4. "Which statistics would you like to calculate for these columns?"
+5. "How many future periods would you like to predict?"
+
+#### Configuration:
+Users can set a default database connection string in their MCP config:
+```json
+{
+  "mcpServers": {
+    "statsource": {
+      "command": "python",
+      "args": ["path/to/mcp_server.py"],
+      "env": {
+        "API_KEY": "your_api_key",
+        "DB_CONNECTION_STRING": "postgresql://username:password@localhost:5432/your_db",
+        "DB_SOURCE_TYPE": "database"
+      }
+    }
+  }
+}
+```
+
 ## Troubleshooting
 
 - **Command Not Found**: Ensure you’re in the virtual environment (`source venv/bin/activate` or `venv\Scripts\activate`) and the path to `mcp_server.py` is correct.
