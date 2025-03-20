@@ -1,5 +1,5 @@
 """
-MCP (Message Control Protocol) Server
+MCP (Message Control Protocol) Server for Statistical Analysis
 
 This module implements an MCP server that acts as a middleware between
 clients (like Claude Desktop app) and our existing API. It runs independently
@@ -20,7 +20,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
-logger = logging.getLogger("mcp_server")
+logger = logging.getLogger("mcp_server_stats")
 
 # Read API location from environment variable with a default fallback
 API_URL = "https://api.statsource.me"
@@ -249,70 +249,75 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
         # Use connection string from config if available and none was provided
         if data_source is None and DB_CONNECTION_STRING is not None:
             data_source = DB_CONNECTION_STRING
-            logger.info(f"Using database connection string from configuration")
-            
-            # Use source type from config if available and none was provided
-            if source_type is None and DB_SOURCE_TYPE is not None:
+            if source_type is None:
                 source_type = DB_SOURCE_TYPE
-                logger.info(f"Using source type from configuration: {source_type}")
         
-        # Ensure we have a data source
-        if data_source is None:
-            return "Error: No data source provided. Please specify a data source or configure DB_CONNECTION_STRING in your MCP config."
+        # Check if we have the minimum required data
+        if not columns:
+            return json.dumps({
+                "error": "No columns specified. Please provide column names to analyze."
+            }, indent=2)
+        
+        # Format the request based on the query type
+        if query_type == "statistics":
+            if not statistics:
+                return json.dumps({
+                    "error": "No statistics specified. Please provide a list of statistics to calculate."
+                }, indent=2)
             
-        # Ensure we have a source type
-        if source_type is None:
-            source_type = "csv"  # Default to CSV if not specified
+            # Prepare statistics request
+            request_data = {
+                "data_source": data_source,
+                "source_type": source_type,
+                "columns": columns,
+                "statistics": statistics
+            }
             
-        # Validate query_type
-        valid_query_types = ["statistics", "ml_prediction"]
-        if query_type not in valid_query_types:
-            return f"Error: Invalid query_type. Must be one of {valid_query_types}"
-        
-        # Validate inputs based on query_type
-        if query_type == "statistics" and not statistics:
-            return "Error: 'statistics' field is required for statistical analysis"
+            # Call the statistics endpoint
+            endpoint = "/api/v1/statistics"
             
-        if query_type == "ml_prediction" and not periods:
-            return "Error: 'periods' is required for ML predictions"
+        elif query_type == "ml_prediction":
+            if not periods or periods <= 0:
+                return json.dumps({
+                    "error": "Invalid prediction periods. Please provide a positive number of periods to predict."
+                }, indent=2)
             
-        if query_type == "ml_prediction" and periods <= 0:
-            return "Error: 'periods' must be a positive integer for ML predictions"
+            # Prepare ML prediction request
+            request_data = {
+                "data_source": data_source,
+                "source_type": source_type,
+                "columns": columns,
+                "periods": periods
+            }
             
-        if not columns or len(columns) == 0:
-            return "Error: 'columns' must be specified and cannot be empty"
+            # Call the ML prediction endpoint
+            endpoint = "/api/v1/ml_prediction"
+            
+        else:
+            return json.dumps({
+                "error": f"Invalid query type: {query_type}. Must be 'statistics' or 'ml_prediction'."
+            }, indent=2)
         
-        # Format the request to match the API's expected format
-        api_request = {
-            "data_source": data_source,
-            "source_type": source_type,
-            "columns": columns
-        }
+        # Add API key if available
+        if API_KEY:
+            request_data["api_key"] = API_KEY
         
-        # Add statistics if provided (required for statistical analysis, optional for ML predictions)
-        if statistics:
-            api_request["statistics"] = statistics
-        
-        # Prepare the endpoint with query parameters if needed
-        endpoint = "/api/v1/get_statistics"
-        if query_type == "ml_prediction" and periods:
-            endpoint += f"?periods={periods}&query_type=ml_prediction"
-        
-        # Call the API
-        response = call_api(endpoint, api_request)
+        # Call the API and return the response
+        response = call_api(endpoint, request_data)
         
         if "error" in response:
-            return f"Error: {response['error']}"
-            
+            return json.dumps({"error": response["error"]}, indent=2)
+        
+        # Return formatted response
         return json.dumps(response, indent=2)
+    
     except Exception as e:
-        return f"Error: {str(e)}"
+        return json.dumps({"error": f"Error getting statistics: {str(e)}"}, indent=2)
+
+def run_server():
+    """Run the MCP server."""
+    logger.info("Starting MCP Server for statistics...")
+    mcp.run()
 
 if __name__ == "__main__":
-    logger.info(f"Starting MCP server, connecting to API at: {API_URL}")
-    # Check API availability at startup
-    if is_api_available():
-        logger.info(f"API at {API_URL} is available")
-    else:
-        logger.warning(f"API at {API_URL} is not available. MCP server will still start, but API calls will fail.")
-    mcp.run(transport="stdio") 
+    run_server() 
