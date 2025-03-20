@@ -274,7 +274,7 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
             }
             
             # Call the statistics endpoint
-            endpoint = "/api/v1/statistics"
+            endpoint = "/api/v1/get_statistics"
             
         elif query_type == "ml_prediction":
             if not periods or periods <= 0:
