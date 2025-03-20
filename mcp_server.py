@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger("mcp_server")
 
 # Read API location from environment variable with a default fallback
-API_URL = "api.statsource.me"
+API_URL = "https://api.statsource.me"
 API_KEY = os.getenv("API_KEY", None)  # Optional API key for authentication
 # Database connection string from environment variable
 DB_CONNECTION_STRING = os.getenv("DB_CONNECTION_STRING", None)
