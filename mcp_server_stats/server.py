@@ -321,7 +321,7 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
             
             # Set up query parameters for ML prediction
             query_params = {
-                "query_type": "ML_PREDICTION",  # API expects uppercase
+                "query_type": "ml_prediction",  # API expects lowercase
                 "periods": periods
             }
             
