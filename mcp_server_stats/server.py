@@ -270,7 +270,8 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
                 "data_source": data_source,
                 "source_type": source_type,
                 "columns": columns,
-                "statistics": statistics
+                "statistics": statistics,
+                "query_type": query_type
             }
             
             # Call the statistics endpoint
@@ -287,11 +288,12 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
                 "data_source": data_source,
                 "source_type": source_type,
                 "columns": columns,
-                "periods": periods
+                "periods": periods,
+                "query_type": query_type
             }
             
-            # Call the ML prediction endpoint
-            endpoint = "/api/v1/ml_prediction"
+            # Call the statistics endpoint for ML prediction as well
+            endpoint = "/api/v1/get_statistics"
             
         else:
             return json.dumps({
