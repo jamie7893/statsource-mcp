@@ -161,7 +161,7 @@ def suggest_feature(description: str, use_case: str, priority: str = "medium") -
         return f"Error submitting feature suggestion: {str(e)}"
 
 @mcp.tool()
-def get_statistics(data_source: Optional[str] = None, source_type: Optional[str] = None, columns: List[str] = [], statistics: Optional[List[str]] = None, query_type: str = "statistics", periods: Optional[int] = None) -> str:
+def get_statistics(data_source: Optional[str] = None, source_type: Optional[str] = None, table_name: Optional[str] = None, columns: List[str] = [], statistics: Optional[List[str]] = None, query_type: str = "statistics", periods: Optional[int] = None) -> str:
     """
     Analyze data and calculate statistics or generate ML predictions based on provided parameters.
     
@@ -176,6 +176,7 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
     - ALWAYS ask the user explicitly for all required information
     - For CSV files: The user MUST first upload their file to statsource.me, then provide the filename
     - For database connections: Ask the user for their exact PostgreSQL connection string - DO NOT GUESS OR MODIFY IT
+    - For database sources: You MUST provide the table_name parameter with the exact table name
     - Never suggest default values, sample data, or example parameters - request specific information from the user
     - If the user has configured a default database connection in their MCP config, inform them it will be used if they don't specify a data source
     - If no database connection is provided in the MCP config and the user doesn't provide one, DO NOT PROCEED - ask user to provide connection details
@@ -196,6 +197,9 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
       * If not provided, will use the connection string from MCP config if available
     - source_type: Type of data source ("csv", "database", or "api")
       * If not provided, will use the source type from MCP config if available
+    - table_name: Name of the database table to use (REQUIRED for database sources)
+      * Must be provided when source_type is "database"
+      * Ask user for the exact table name in their database
     - statistics: List of statistics to calculate (only required for statistical analysis)
     - query_type: Type of query ("statistics" or "ml_prediction")
     - periods: Number of future periods to predict (only used for ML predictions)
@@ -225,6 +229,7 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
     3. "Which specific columns in your data would you like to analyze?"
     4. "Which statistics would you like to calculate for these columns?"
     5. "How many future periods would you like to predict?"
+    6. "What is the exact name of the table in your database that contains this data?"
     
     ### Configuration:
     Users can set a default database connection string in their MCP config:
@@ -258,6 +263,12 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
                 "error": "No columns specified. Please provide column names to analyze."
             }, indent=2)
         
+        # Validate that table_name is provided for database sources
+        if source_type == "database" and not table_name:
+            return json.dumps({
+                "error": "Table name is required for database sources. Please specify the table_name parameter."
+            }, indent=2)
+            
         # Format the request based on the query type
         if query_type == "statistics":
             if not statistics:
@@ -273,6 +284,10 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
                 "statistics": statistics,
                 "query_type": query_type
             }
+            
+            # Add table_name for database sources
+            if source_type == "database" and table_name:
+                request_data["table_name"] = table_name
             
             # Call the statistics endpoint
             endpoint = "/api/v1/get_statistics"
@@ -291,6 +306,10 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
                 "periods": periods,
                 "query_type": query_type
             }
+            
+            # Add table_name for database sources
+            if source_type == "database" and table_name:
+                request_data["table_name"] = table_name
             
             # Call the statistics endpoint for ML prediction as well
             endpoint = "/api/v1/get_statistics"
