@@ -69,13 +69,14 @@ def is_api_available() -> bool:
         return False
 
 # Helper function to make API calls
-def call_api(endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
+def call_api(endpoint: str, data: Dict[str, Any], params: Dict[str, Any] = None) -> Dict[str, Any]:
     """
     Make a request to the API.
     
     Args:
         endpoint: API endpoint path (without base URL)
         data: Request payload
+        params: URL query parameters
         
     Returns:
         API response as dictionary
@@ -95,7 +96,7 @@ def call_api(endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
     
     try:
         logger.info(f"Calling API endpoint: {endpoint}")
-        response = requests.post(f"{API_URL}{endpoint}", json=data, headers=headers)
+        response = requests.post(f"{API_URL}{endpoint}", json=data, headers=headers, params=params)
         response.raise_for_status()  # Raise exception for 4XX/5XX responses
         return response.json()
     except requests.RequestException as e:
@@ -278,8 +279,8 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
             
             # Prepare statistics request
             request_data = {
-                "data_source": data_source,
-                "source_type": source_type,
+                "data_source": DB_CONNECTION_STRING if data_source is None else data_source,
+                "source_type": source_type or DB_SOURCE_TYPE,
                 "columns": columns,
                 "statistics": statistics,
                 "query_type": query_type
@@ -293,6 +294,15 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
             endpoint = "/api/v1/get_statistics"
             
         elif query_type == "ml_prediction":
+            # Convert periods to int if it's a string
+            if isinstance(periods, str):
+                try:
+                    periods = int(periods)
+                except ValueError:
+                    return json.dumps({
+                        "error": "Invalid prediction periods. Must be a valid integer."
+                    }, indent=2)
+                    
             if not periods or periods <= 0:
                 return json.dumps({
                     "error": "Invalid prediction periods. Please provide a positive number of periods to predict."
@@ -300,16 +310,20 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
             
             # Prepare ML prediction request
             request_data = {
-                "data_source": data_source,
-                "source_type": source_type,
-                "columns": columns,
-                "periods": periods,
-                "query_type": query_type
+                "data_source": DB_CONNECTION_STRING if data_source is None else data_source,
+                "source_type": source_type or DB_SOURCE_TYPE,
+                "columns": columns
             }
             
             # Add table_name for database sources
-            if source_type == "database" and table_name:
+            if (source_type == "database" or DB_SOURCE_TYPE == "database") and table_name:
                 request_data["table_name"] = table_name
+            
+            # Set up query parameters for ML prediction
+            query_params = {
+                "query_type": "ML_PREDICTION",  # API expects uppercase
+                "periods": periods
+            }
             
             # Call the statistics endpoint for ML prediction as well
             endpoint = "/api/v1/get_statistics"
@@ -319,12 +333,8 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
                 "error": f"Invalid query type: {query_type}. Must be 'statistics' or 'ml_prediction'."
             }, indent=2)
         
-        # Add API key if available
-        if API_KEY:
-            request_data["api_key"] = API_KEY
-        
         # Call the API and return the response
-        response = call_api(endpoint, request_data)
+        response = call_api(endpoint, request_data, query_params if query_type == "ml_prediction" else None)
         
         if "error" in response:
             return json.dumps({"error": response["error"]}, indent=2)
