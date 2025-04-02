@@ -48,6 +48,31 @@ Or use the console script:
 mcp-server-stats
 ```
 
+## Docker Support
+
+To use the Docker option mentioned in the configuration section, you'll need to build and publish the Docker image first:
+
+### Building the Docker image locally
+
+```bash
+docker build -t statsource/mcp .
+```
+
+### Running the Docker image locally
+
+```bash
+docker run -i --rm statsource/mcp
+```
+
+### Publishing to Docker Hub
+
+If you want to make the image available for everyone:
+
+```bash
+docker login
+docker push statsource/mcp
+```
+
 ## Configuration
 
 ### Configure for Claude.app

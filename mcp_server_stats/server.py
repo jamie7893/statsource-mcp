@@ -182,6 +182,25 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
     - If the user has configured a default database connection in their MCP config, inform them it will be used if they don't specify a data source
     - If no database connection is provided in the MCP config and the user doesn't provide one, DO NOT PROCEED - ask user to provide connection details
     
+    ### IMPORTANT: Parameter Validation and Formatting
+    - For ML predictions (sales trends), always use query_type="ml_prediction" 
+      and provide the periods parameter. Do NOT use statistics parameter with ml_prediction.
+    - When users ask about "trends" or "forecasts", use query_type="ml_prediction".
+      For descriptive statistics only, use query_type="statistics".
+    - Statistics must be provided as a proper list:
+      CORRECT: statistics=["mean", "sum", "min", "max"]
+      INCORRECT: statistics="[\"mean\", \"sum\", \"min\", \"max\"]"
+    
+    ### CRITICAL: Column Name Formatting
+    - Column names must match database exactly - use underscores, not spaces
+      (e.g., "total_value" not "total value"). Always confirm exact column names with the user.
+    
+    ### Error Response Handling
+    - If you receive an "Invalid request" error, check:
+      1. Column name spelling and format (underscores vs spaces)
+      2. Query type selection (ml_prediction vs statistics)
+      3. Parameter format (proper lists vs string-encoded lists)
+    
     ### When to use this tool:
     - When a user needs statistical analysis of their data (means, medians, etc.)
     - When a user wants to predict future values based on historical trends
@@ -235,7 +254,7 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
     1. "Have you already uploaded your CSV file to statsource.me? What is the filename?"
     2. "What is your exact PostgreSQL connection string?" (if not configured in MCP config)
     3. "Which specific columns in your data would you like to analyze?"
-    4. "Which statistics would you like to calculate for these columns?"
+    4. "What statistics would you like to calculate for these columns?"
     5. "How many future periods would you like to predict?"
     6. "What is the exact name of the table in your database that contains this data?"
     
