@@ -162,7 +162,7 @@ def suggest_feature(description: str, use_case: str, priority: str = "medium") -
         return f"Error submitting feature suggestion: {str(e)}"
 
 @mcp.tool()
-def get_statistics(data_source: Optional[str] = None, source_type: Optional[str] = None, table_name: Optional[str] = None, columns: List[str] = [], statistics: Optional[List[str]] = None, query_type: str = "statistics", periods: Optional[int] = None) -> str:
+def get_statistics(data_source: Optional[str] = None, source_type: Optional[str] = None, table_name: Optional[str] = None, columns: List[str] = [], statistics: Optional[List[str]] = None, query_type: str = "statistics", periods: Optional[int] = None, filters: Optional[Dict[str, Any]] = None, groupby: Optional[List[str]] = None, options: Optional[Dict[str, Any]] = None, date_column: Optional[str] = None, start_date: Optional[Union[str, datetime]] = None, end_date: Optional[Union[str, datetime]] = None) -> str:
     """
     Analyze data and calculate statistics or generate ML predictions based on provided parameters.
     
@@ -204,10 +204,17 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
     - statistics: List of statistics to calculate (only required for statistical analysis)
     - query_type: Type of query ("statistics" or "ml_prediction")
     - periods: Number of future periods to predict (only used for ML predictions)
+    - filters: Dictionary of column-value pairs to filter data before analysis
+      * Format: {"column_name": "value"} or {"column_name": ["val1", "val2"]}
+    - groupby: List of column names to group data by before calculating statistics
+    - options: Dictionary of additional options for specific operations
+    - date_column: Column name containing date/timestamp information
+      * Used for date filtering and time-based trend analysis
+    - start_date: Inclusive start date for filtering (ISO 8601 format or datetime)
+    - end_date: Inclusive end date for filtering (ISO 8601 format or datetime)
     
     ### Valid statistics options:
-    - Basic (free tier): "mean", "median", "min", "max", "count", "sum", "std", "var"
-    - Advanced (paid tier): "skewness", "kurtosis", "percentile", "histogram", "correlation"
+    - 'mean', 'median', 'std', 'sum', 'count', 'min', 'max', 'describe', 'correlation', 'missing', 'unique', 'boxplot'
     
     ### ML Prediction features:
     - Time series forecasting with customizable prediction periods
@@ -232,6 +239,23 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
     5. "How many future periods would you like to predict?"
     6. "What is the exact name of the table in your database that contains this data?"
     
+    ### Examples of filtering and date parameters:
+    
+    For filtering specific rows:
+    ```
+    filters={"status": "completed", "region": ["North", "East"]}
+    ```
+    
+    For time-series analysis with date filtering:
+    ```
+    date_column="transaction_date", start_date="2023-01-01", end_date="2023-12-31"
+    ```
+    
+    For grouped statistics:
+    ```
+    groupby=["region", "product_category"]
+    ```
+    
     ### Configuration:
     Users can set a default database connection string in their MCP config:
     
@@ -250,6 +274,8 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
         }
     }
     ```
+    
+    Note: The API automatically handles authentication using the API key from headers.
     """
     try:
         # Use connection string from config if available and none was provided
@@ -289,6 +315,20 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
             # Add table_name for database sources
             if source_type == "database" and table_name:
                 request_data["table_name"] = table_name
+                
+            # Add optional filtering parameters if provided
+            if filters is not None:
+                request_data["filters"] = filters
+            if groupby is not None:
+                request_data["groupby"] = groupby
+            if options is not None:
+                request_data["options"] = options
+            if date_column is not None:
+                request_data["date_column"] = date_column
+            if start_date is not None:
+                request_data["start_date"] = start_date
+            if end_date is not None:
+                request_data["end_date"] = end_date
             
             # Call the statistics endpoint
             endpoint = "/api/v1/get_statistics"
@@ -318,6 +358,18 @@ def get_statistics(data_source: Optional[str] = None, source_type: Optional[str]
             # Add table_name for database sources
             if (source_type == "database" or DB_SOURCE_TYPE == "database") and table_name:
                 request_data["table_name"] = table_name
+                
+            # Add optional filtering parameters if provided
+            if filters is not None:
+                request_data["filters"] = filters
+            if options is not None:
+                request_data["options"] = options
+            if date_column is not None:
+                request_data["date_column"] = date_column
+            if start_date is not None:
+                request_data["start_date"] = start_date
+            if end_date is not None:
+                request_data["end_date"] = end_date
             
             # Set up query parameters for ML prediction
             query_params = {
