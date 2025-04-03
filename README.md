@@ -1,4 +1,5 @@
 # Statsource MCP Server
+
 A Model Context Protocol server that provides statistical analysis capabilities. This server enables LLMs to analyze data from various sources, calculate statistics, and generate predictions.
 
 The statistics tool connects to our analytics API and allows AI models to perform statistical analysis and generate ML predictions based on user data, whether it's in a PostgreSQL database or a CSV file.
@@ -6,20 +7,37 @@ The statistics tool connects to our analytics API and allows AI models to perfor
 ## Available Tools
 
 ### get_statistics
+
 Analyze data and calculate statistics or generate ML predictions based on provided parameters.
 
 **Arguments:**
-- `columns` (list of strings, required): List of column names to analyze or predict
-- `data_source` (string, optional): Path to data file, database connection string, or API endpoint
-- `source_type` (string, optional): Type of data source ("csv", "database", or "api")
-- `statistics` (list of strings, optional): List of statistics to calculate (for statistical analysis)
-- `query_type` (string, optional): Type of query ("statistics" or "ml_prediction")
-- `periods` (integer, optional): Number of future periods to predict (for ML predictions)
+
+- `columns` (list of strings, required): List of column names to analyze or predict (Ask user for exact column names).
+- `data_source` (string, optional): Path to data file (uploaded to statsource.me), database connection string (ask user for exact string), or API endpoint. If not provided, uses `DB_CONNECTION_STRING` from env config if set.
+- `source_type` (string, optional): Type of data source ("csv", "database", or "api"). If not provided, uses `DB_SOURCE_TYPE` from env config if set.
+- `table_name` (string, optional but **required** if `source_type` is "database"): Name of the database table to use (Ask user for exact table name).
+- `statistics` (list of strings, optional): List of statistics to calculate (required for `query_type="statistics"`). Valid options include: 'mean', 'median', 'std', 'sum', 'count', 'min', 'max', 'describe', 'correlation', 'missing', 'unique', 'boxplot'.
+- `query_type` (string, optional, default="statistics"): Type of query ("statistics" or "ml_prediction").
+- `periods` (integer, optional): Number of future periods to predict (required for `query_type="ml_prediction"`).
+- `filters` (dict, optional): Dictionary of column-value pairs to filter data (e.g., `{"status": "completed", "region": ["North", "East"]}`).
+- `groupby` (list of strings, optional): List of column names to group data by before calculating statistics (e.g., `["region", "product_category"]`).
+- `options` (dict, optional): Dictionary of additional options for specific operations.
+- `date_column` (string, optional): Column name containing date/timestamp information for filtering and time-series analysis.
+- `start_date` (string or datetime, optional): Inclusive start date for filtering (ISO 8601 format, e.g., "2023-01-01").
+- `end_date` (string or datetime, optional): Inclusive end date for filtering (ISO 8601 format, e.g., "2023-12-31").
+
+**Key Usage Notes:**
+
+- **Data Sources:** For CSV, the user must upload the file to statsource.me first and provide the filename. For databases, ask the user for the _exact_ connection string and table name. Never guess or invent connection details.
+- **Configuration:** If `data_source` and `source_type` are not provided, the tool will attempt to use `DB_CONNECTION_STRING` and `DB_SOURCE_TYPE` from the environment configuration (see below).
+- **Filtering/Grouping:** Use `filters`, `groupby`, `date_column`, `start_date`, and `end_date` to analyze specific subsets of data.
 
 ### suggest_feature
+
 Suggest a new feature or improvement for the StatSource analytics platform.
 
 **Arguments:**
+
 - `description` (string, required): A clear, detailed description of the suggested feature
 - `use_case` (string, required): Explanation of how and why users would use this feature
 - `priority` (string, optional): Suggested priority level ("low", "medium", "high")
@@ -27,9 +45,11 @@ Suggest a new feature or improvement for the StatSource analytics platform.
 ## Installation
 
 ### Using uv (recommended)
+
 When using uv no specific installation is needed. We will use uvx to directly run mcp-server-stats.
 
 ### Using PIP
+
 Alternatively you can install mcp-server-stats via pip:
 
 ```bash
@@ -51,9 +71,11 @@ mcp-server-stats
 ## Configuration
 
 ### Configure for Claude.app
+
 Add to your Claude settings:
 
 **Using uvx**
+
 ```json
 "mcpServers": {
   "statsource": {
@@ -64,16 +86,18 @@ Add to your Claude settings:
 ```
 
 **Using docker**
+
 ```json
 "mcpServers": {
   "statsource": {
     "command": "docker",
-    "args": ["run", "-i", "--rm", "statsource/mcp"]
+    "args": ["run", "-i", "--rm", "jamie78933/statsource-mcp"]
   }
 }
 ```
 
 **Using pip installation**
+
 ```json
 "mcpServers": {
   "statsource": {
@@ -104,7 +128,7 @@ You can configure the server using environment variables in your Claude.app conf
 Available environment variables:
 
 - `API_KEY`: Your API key for authentication with statsource.me
-- `DB_CONNECTION_STRING`: Default database connection string 
+- `DB_CONNECTION_STRING`: Default database connection string
 - `DB_SOURCE_TYPE`: Default data source type (usually "database")
 
 ## Debugging
@@ -131,4 +155,3 @@ Pull requests are welcome! Feel free to contribute new ideas, bug fixes, or enha
 ## License
 
 mcp-server-stats is licensed under the MIT License. This means you are free to use, modify, and distribute the software, subject to the terms and conditions of the MIT License. For more details, please see the LICENSE file in the project repository.
-
