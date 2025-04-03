@@ -165,256 +165,189 @@ def suggest_feature(description: str, use_case: str, priority: str = "medium") -
 def get_statistics(data_source: Optional[str] = None, source_type: Optional[str] = None, table_name: Optional[str] = None, columns: List[str] = [], statistics: Optional[List[str]] = None, query_type: str = "statistics", periods: Optional[int] = None, filters: Optional[Dict[str, Any]] = None, groupby: Optional[List[str]] = None, options: Optional[Dict[str, Any]] = None, date_column: Optional[str] = None, start_date: Optional[Union[str, datetime]] = None, end_date: Optional[Union[str, datetime]] = None) -> str:
     """
     Analyze data and calculate statistics or generate ML predictions based on provided parameters.
-    
+
     ### What this tool does:
     This tool connects to our analytics API and provides two main functionalities:
-    1. Statistical Analysis: Calculate various statistical measures on specified data columns
-    2. ML Predictions: Generate time-series forecasts for future periods based on historical data
-    
+    1. Statistical Analysis: Calculate various statistical measures on specified data columns from CSV files, databases, or external APIs.
+    2. ML Predictions: Generate time-series forecasts for future periods based on historical data from any supported source.
+
+    It supports multiple data sources:
+    - CSV files (previously uploaded to StatSource)
+    - Databases (PostgreSQL, SQLite, etc.)
+    - External APIs (returning JSON data)
+
     ### IMPORTANT INSTRUCTIONS FOR AI AGENTS:
-    - DO NOT make up or guess any parameter values, especially data sources or column names
-    - NEVER, UNDER ANY CIRCUMSTANCES, create or invent database connection strings - this is a severe security risk
-    - ALWAYS ask the user explicitly for all required information
-    - For CSV files: The user MUST first upload their file to statsource.me, then provide the filename
-    - For database connections: Ask the user for their exact PostgreSQL connection string - DO NOT GUESS OR MODIFY IT
-    - For database sources: You MUST provide the table_name parameter with the exact table name
-    - Never suggest default values, sample data, or example parameters - request specific information from the user
-    - If the user has configured a default database connection in their MCP config, inform them it will be used if they don't specify a data source
-    - If no database connection is provided in the MCP config and the user doesn't provide one, DO NOT PROCEED - ask user to provide connection details
-    
+    - DO NOT make up or guess any parameter values, especially data sources, column names, or API URLs.
+    - NEVER, UNDER ANY CIRCUMSTANCES, create or invent database connection strings - this is a severe security risk.
+    - ALWAYS ask the user explicitly for all required information.
+    - For CSV files: The user MUST first upload their file to statsource.me, then provide the filename.
+    - For database connections: Ask the user for their exact connection string (e.g., "postgresql://user:pass@host/db"). DO NOT GUESS OR MODIFY IT.
+    - For database sources: You MUST provide the table_name parameter with the exact table name.
+    - For API sources: Ask the user for the exact API endpoint URL that returns JSON data.
+    - Never suggest default values, sample data, or example parameters - request specific information from the user.
+    - If the user has configured a default database connection in their MCP config, inform them it will be used if they don't specify a data source.
+    - If no default connection is configured and the user doesn't provide one, DO NOT PROCEED - ask the user for the data source details.
+
     ### IMPORTANT: Parameter Validation and Formatting
-    - For ML predictions (sales trends), always use query_type="ml_prediction" 
-      and provide the periods parameter. Do NOT use statistics parameter with ml_prediction.
+    - For ML predictions (e.g., sales trends), always use query_type="ml_prediction"
+      and provide the periods parameter. Do NOT use the statistics parameter with ml_prediction.
     - When users ask about "trends" or "forecasts", use query_type="ml_prediction".
       For descriptive statistics only, use query_type="statistics".
-    - Statistics must be provided as a proper list:
+    - statistics must be provided as a proper list:
       CORRECT: statistics=["mean", "sum", "min", "max"]
-      INCORRECT: statistics="[\"mean\", \"sum\", \"min\", \"max\"]"
-    
-    ### CRITICAL: Column Name Formatting
-    - Column names must match database exactly - use underscores, not spaces
-      (e.g., "total_value" not "total value"). Always confirm exact column names with the user.
-    
+      INCORRECT: statistics="[\\"mean\\", \\"sum\\", \\"min\\", \\"max\\"]"
+    - columns must be provided as a proper list:
+      CORRECT: columns=["revenue", "quantity"]
+      INCORRECT: columns="[\\"revenue\\", \\"quantity\\"]"
+
+    ### CRITICAL: Column Name Formatting & Case-Insensitivity
+    - **Column Matching:** The API matches column names case-insensitively. You can specify "revenue" even if the data has "Revenue". Ask the user for the intended column names.
+    - **Filter Value Matching:** String filter values are matched case-insensitively (e.g., filter `{"status": "completed"}` will match "Completed" in the data).
+    - **Table Name Matching (Databases):** The API attempts case-insensitive matching for database table names.
+
     ### Error Response Handling
-    - If you receive an "Invalid request" error, check:
-      1. Column name spelling and format (underscores vs spaces)
-      2. Query type selection (ml_prediction vs statistics)
-      3. Parameter format (proper lists vs string-encoded lists)
-    
+    - If you receive an "Invalid request" or similar error, check:
+      1. Column name spelling and existence in the data source.
+      2. Query type selection (ml_prediction vs statistics).
+      3. Parameter format (proper lists vs string-encoded lists).
+      4. Correct data_source provided (filename, connection string, or API URL).
+      5. table_name provided if source_type is "database".
+      6. API URL is correct and returns valid JSON if source_type is "api".
+
     ### When to use this tool:
-    - When a user needs statistical analysis of their data (means, medians, etc.)
-    - When a user wants to predict future values based on historical trends
-    - When analyzing trends, patterns, or distributions in datasets
-    - When generating forecasts for business planning or decision-making
-    
+    - When a user needs statistical analysis of their data (means, medians, correlations, etc.).
+    - When a user wants to predict future values based on historical trends (forecasting).
+    - When analyzing trends, patterns, or distributions in datasets from files, databases, or APIs.
+    - When generating forecasts for business planning or decision-making.
+
     ### Required inputs:
-    - columns: List of column names to analyze or predict (ask user for exact column names in their data)
-    
+    - columns: List of column names to analyze or predict (ask user for exact column names in their data).
+
     ### Optional inputs:
-    - data_source: Path to data file, database connection string, or API endpoint
-      * For CSV: Filename of a previously uploaded file on statsource.me (ask user to upload first)
-      * For Database: Full connection string (ask user for exact string)
-      * If not provided, will use the connection string from MCP config if available
-    - source_type: Type of data source ("csv", "database", or "api")
-      * If not provided, will use the source type from MCP config if available
-    - table_name: Name of the database table to use (REQUIRED for database sources)
-      * Must be provided when source_type is "database"
-      * Ask user for the exact table name in their database
-    - statistics: List of statistics to calculate (only required for statistical analysis)
-    - query_type: Type of query ("statistics" or "ml_prediction")
-    - periods: Number of future periods to predict (only used for ML predictions)
-    - filters: Dictionary of column-value pairs to filter data before analysis
+    - data_source: Identifier for the data source.
+      * For CSV: Filename of a previously uploaded file on statsource.me (ask user to upload first).
+      * For Database: Full connection string (ask user for exact string).
+      * For API: The exact URL of the API endpoint returning JSON data (ask user for the URL).
+      * If not provided, will use the connection string from MCP config if available (defaults to database type).
+    - source_type: Type of data source ('csv', 'database', or 'api').
+      * Determines how `data_source` is interpreted.
+      * If not provided, will use the source type from MCP config if available (defaults to 'database'). Ensure this matches the provided `data_source`.
+    - table_name: Name of the database table to use (REQUIRED for database sources).
+      * Must be provided when source_type is 'database'.
+      * Ask user for the exact table name in their database.
+    - statistics: List of statistics to calculate (only required for query_type="statistics").
+    - query_type: Type of query ('statistics' or 'ml_prediction'). Default is 'statistics'.
+    - periods: Number of future periods to predict (REQUIRED for query_type="ml_prediction").
+    - filters: Dictionary of column-value pairs to filter data *before* analysis.
       * Format: {"column_name": "value"} or {"column_name": ["val1", "val2"]}
-    - groupby: List of column names to group data by before calculating statistics
-    - options: Dictionary of additional options for specific operations
-    - date_column: Column name containing date/timestamp information
-      * Used for date filtering and time-based trend analysis
-    - start_date: Inclusive start date for filtering (ISO 8601 format or datetime)
-    - end_date: Inclusive end date for filtering (ISO 8601 format or datetime)
-    
+      * **API Source Behavior:** For 'api' sources, data is fetched *first*, then filters are applied to the resulting data.
+    - groupby: List of column names to group data by before calculating statistics (only applies to query_type="statistics").
+    - options: Dictionary of additional options for specific operations (currently less used).
+    - date_column: Column name containing date/timestamp information.
+      * Used for date filtering and time-based trend analysis (ML predictions). Matched case-insensitively.
+    - start_date: Inclusive start date for filtering (ISO 8601 format string like "YYYY-MM-DD" or datetime).
+    - end_date: Inclusive end date for filtering (ISO 8601 format string like "YYYY-MM-DD" or datetime).
+      * **API Source Behavior:** For 'api' sources, date filtering happens *after* data is fetched.
+
     ### Valid statistics options:
     - 'mean', 'median', 'std', 'sum', 'count', 'min', 'max', 'describe', 'correlation', 'missing', 'unique', 'boxplot'
-    
+
     ### ML Prediction features:
-    - Time series forecasting with customizable prediction periods
-    - Trend direction analysis ("increasing", "decreasing", "stable")
-    - Model quality metrics (r-squared, slope)
-    - Works with numeric data columns from any supported data source
-    
+    - Time series forecasting with customizable prediction periods.
+    - Trend direction analysis ("increasing", "decreasing", "stable").
+    - Model quality metrics (r-squared, slope).
+    - Works with numeric data columns from any supported data source.
+    - Can use a specific `date_column` for time-based regression.
+
     ### Returns:
+    A JSON string containing the results and metadata.
     For statistics queries:
-    - Statistical measures for each requested column and statistic
-    
+    - `result`: Dictionary with statistical measures for each requested column and statistic. Structure varies by statistic (e.g., `describe`, `correlation`).
+    - `metadata`: Includes `execution_time`, `query_type`, `source_type`.
     For ML prediction queries:
-    - Predicted future values for specified columns
-    - Trend direction and model quality metrics
-    - R-squared value and slope indicators
-    
-    ### Examples of QUESTIONS to ask users (DO NOT use these as defaults):
-    1. "Have you already uploaded your CSV file to statsource.me? What is the filename?"
-    2. "What is your exact PostgreSQL connection string?" (if not configured in MCP config)
-    3. "Which specific columns in your data would you like to analyze?"
-    4. "What statistics would you like to calculate for these columns?"
-    5. "How many future periods would you like to predict?"
-    6. "What is the exact name of the table in your database that contains this data?"
-    
-    ### Examples of filtering and date parameters:
-    
-    For filtering specific rows:
-    ```
-    filters={"status": "completed", "region": ["North", "East"]}
-    ```
-    
-    For time-series analysis with date filtering:
-    ```
-    date_column="transaction_date", start_date="2023-01-01", end_date="2023-12-31"
-    ```
-    
-    For grouped statistics:
-    ```
-    groupby=["region", "product_category"]
-    ```
-    
-    ### Configuration:
-    Users can set a default database connection string in their MCP config:
-    
-    ```json
-    {
-        "mcpServers": {
-            "statsource": {
-                "command": "python",
-                "args": ["path/to/mcp_server.py"],
-                "env": {
-                    "API_KEY": "your_api_key",
-                    "DB_CONNECTION_STRING": "postgresql://username:password@localhost:5432/your_db",
-                    "DB_SOURCE_TYPE": "database"
-                }
-            }
-        }
-    }
-    ```
-    
-    Note: The API automatically handles authentication using the API key from headers.
+    - `result`: Dictionary containing prediction details per analyzed column (only the first specified column is used for ML): `{"r_squared": ..., "slope": ..., "trend_direction": ..., "forecast_values": [...], ...}`.
+    - `metadata`: Includes `execution_time`, `query_type`, `source_type`, `periods`.
     """
-    try:
-        # Use connection string from config if available and none was provided
-        if data_source is None and DB_CONNECTION_STRING is not None:
-            data_source = DB_CONNECTION_STRING
-            if source_type is None:
-                source_type = DB_SOURCE_TYPE
-        
-        # Check if we have the minimum required data
-        if not columns:
-            return json.dumps({
-                "error": "No columns specified. Please provide column names to analyze."
-            }, indent=2)
-        
-        # Validate that table_name is provided for database sources
-        if source_type == "database" and not table_name:
-            return json.dumps({
-                "error": "Table name is required for database sources. Please specify the table_name parameter."
-            }, indent=2)
-            
-        # Format the request based on the query type
-        if query_type == "statistics":
-            if not statistics:
-                return json.dumps({
-                    "error": "No statistics specified. Please provide a list of statistics to calculate."
-                }, indent=2)
-            
-            # Prepare statistics request
-            request_data = {
-                "data_source": DB_CONNECTION_STRING if data_source is None else data_source,
-                "source_type": source_type or DB_SOURCE_TYPE,
-                "columns": columns,
-                "statistics": statistics,
-                "query_type": query_type
-            }
-            
-            # Add table_name for database sources
-            if source_type == "database" and table_name:
-                request_data["table_name"] = table_name
-                
-            # Add optional filtering parameters if provided
-            if filters is not None:
-                request_data["filters"] = filters
-            if groupby is not None:
-                request_data["groupby"] = groupby
-            if options is not None:
-                request_data["options"] = options
-            if date_column is not None:
-                request_data["date_column"] = date_column
-            if start_date is not None:
-                request_data["start_date"] = start_date
-            if end_date is not None:
-                request_data["end_date"] = end_date
-            
-            # Call the statistics endpoint
-            endpoint = "/api/v1/get_statistics"
-            
-        elif query_type == "ml_prediction":
-            # Convert periods to int if it's a string
-            if isinstance(periods, str):
-                try:
-                    periods = int(periods)
-                except ValueError:
-                    return json.dumps({
-                        "error": "Invalid prediction periods. Must be a valid integer."
-                    }, indent=2)
-                    
-            if not periods or periods <= 0:
-                return json.dumps({
-                    "error": "Invalid prediction periods. Please provide a positive number of periods to predict."
-                }, indent=2)
-            
-            # Prepare ML prediction request
-            request_data = {
-                "data_source": DB_CONNECTION_STRING if data_source is None else data_source,
-                "source_type": source_type or DB_SOURCE_TYPE,
-                "columns": columns
-            }
-            
-            # Add table_name for database sources
-            if (source_type == "database" or DB_SOURCE_TYPE == "database") and table_name:
-                request_data["table_name"] = table_name
-                
-            # Add optional filtering parameters if provided
-            if filters is not None:
-                request_data["filters"] = filters
-            if options is not None:
-                request_data["options"] = options
-            if date_column is not None:
-                request_data["date_column"] = date_column
-            if start_date is not None:
-                request_data["start_date"] = start_date
-            if end_date is not None:
-                request_data["end_date"] = end_date
-            
-            # Set up query parameters for ML prediction
-            query_params = {
-                "query_type": "ml_prediction",  # API expects lowercase
-                "periods": periods
-            }
-            
-            # Call the statistics endpoint for ML prediction as well
-            endpoint = "/api/v1/get_statistics"
-            
+    # Determine the final data source and type, considering environment variables/config
+    final_data_source = data_source
+    final_source_type = source_type
+
+    # Use default DB connection if no source is specified and DB_CONNECTION_STRING is set
+    if not final_data_source and DB_CONNECTION_STRING:
+        final_data_source = DB_CONNECTION_STRING
+        final_source_type = DB_SOURCE_TYPE  # Use configured DB type
+        logger.info(f"No data_source provided, using configured DB: {final_data_source} with type: {final_source_type}")
+    elif not final_source_type and final_data_source:
+        # Infer source type if not explicitly provided (basic inference)
+        if "://" in final_data_source or final_data_source.lower().startswith("http"):
+            if any(db_protocol in final_data_source.lower() for db_protocol in ["postgresql://", "mysql://", "sqlite://"]):
+                final_source_type = "database"
+            else:
+                 final_source_type = "api" # Assume API if it looks like a URL but not a DB string
         else:
-            return json.dumps({
-                "error": f"Invalid query type: {query_type}. Must be 'statistics' or 'ml_prediction'."
-            }, indent=2)
+            final_source_type = "csv" # Assume CSV otherwise (filename)
+        logger.info(f"Inferred source_type as '{final_source_type}' for data_source: {final_data_source}")
+
+
+    # Basic validation
+    if not columns:
+        return json.dumps({"error": "The 'columns' parameter is required and cannot be empty."})
         
-        # Call the API and return the response
-        response = call_api(endpoint, request_data, query_params if query_type == "ml_prediction" else None)
+    if query_type == "ml_prediction" and periods is None:
+        return json.dumps({"error": "The 'periods' parameter is required when query_type is 'ml_prediction'."})
         
-        if "error" in response:
-            return json.dumps({"error": response["error"]}, indent=2)
+    if query_type == "statistics" and not statistics:
+         return json.dumps({"error": "The 'statistics' parameter is required when query_type is 'statistics'."})
+
+    if final_source_type == "database" and not table_name:
+        return json.dumps({"error": "The 'table_name' parameter is required when source_type is 'database'."})
         
-        # Return formatted response
-        return json.dumps(response, indent=2)
+    if not final_data_source and not DB_CONNECTION_STRING:
+         return json.dumps({"error": "No data_source provided and no default database connection configured. Please provide a data_source (filename, DB connection string, or API URL)."})
+
+
+    # Prepare request payload and parameters for the API call
+    api_request_data = {
+        "data_source": final_data_source,
+        "source_type": final_source_type,
+        "columns": columns,
+        "table_name": table_name,
+        "filters": filters,
+        "groupby": groupby,
+        "options": options,
+        "date_column": date_column,
+        # Convert datetime objects to ISO strings for JSON serialization if necessary
+        "start_date": start_date.isoformat() if isinstance(start_date, datetime) else start_date,
+        "end_date": end_date.isoformat() if isinstance(end_date, datetime) else end_date,
+    }
     
+    api_params = {}
+
+    if query_type == "statistics":
+        api_request_data["statistics"] = statistics
+        api_params["query_type"] = "statistics"
+    elif query_type == "ml_prediction":
+        api_params["query_type"] = "ml_prediction"
+        api_params["periods"] = periods
+        # ML prediction might not need the 'statistics' key in the body
+        if "statistics" in api_request_data:
+             del api_request_data["statistics"]
+
+
+    # Remove None values from payload to avoid sending empty optional fields
+    api_request_data = {k: v for k, v in api_request_data.items() if v is not None}
+
+    try:
+        logger.info(f"Preparing API call. Request Body: {api_request_data}, Query Params: {api_params}")
+        # Call the API endpoint
+        endpoint = "/api/v1/statistics"
+        response = call_api(endpoint, data=api_request_data, params=api_params)
+        
+        # Return the API response directly (as JSON string)
+        return json.dumps(response, indent=2)
     except Exception as e:
-        return json.dumps({"error": f"Error getting statistics: {str(e)}"}, indent=2)
+        logger.exception(f"Error during get_statistics processing: {str(e)}")
+        return json.dumps({"error": f"An unexpected error occurred: {str(e)}"}, indent=2)
 
 def run_server():
     """Run the MCP server."""
